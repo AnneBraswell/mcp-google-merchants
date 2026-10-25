@@ -61,7 +61,7 @@ app.post("/authorize", async c => {
  * are passed to the user or stored by this flow.
  */
 app.get("/setup/developer-registration", c => c.html(
-  \`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Paintarthub Merchant API registration</title>
   <main style="font:16px system-ui,sans-serif;max-width:630px;margin:12vh auto;padding:22px;line-height:1.6">
   <h1>Register Paintarthub Merchant API</h1>
@@ -72,7 +72,7 @@ app.get("/setup/developer-registration", c => c.html(
   It does not update or delete any products.</p>
   <form method="POST" action="/setup/developer-registration"><button type="submit"
   style="padding:12px 18px;cursor:pointer">Authorize with Google and register</button></form>
-  </main></html>\`,
+  </main></html>`,
 ));
 
 app.post("/setup/developer-registration", async c => {
