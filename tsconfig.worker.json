@@ -1,0 +1,33 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node",
+      "@cloudflare/workers-types"
+    ],
+    "noEmit": true
+  },
+  "include": [
+    "src/worker.ts",
+    "src/worker-auth.ts",
+    "src/worker-oauth-utils.ts",
+    "src/worker-env.d.ts",
+    "src/client.ts",
+    "src/config.ts",
+    "src/tools/**/*.ts"
+  ],
+  "exclude": [
+    "src/index.ts",
+    "src/smoke.ts",
+    "src/**/*.test.ts",
+    "node_modules",
+    "dist"
+  ]
+}
