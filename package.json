@@ -1,7 +1,7 @@
 {
   "name": "mcp-google-merchants",
   "version": "1.2.0",
-  "description": "MCP server for Google Merchant Center (Merchant API v1) \u2014 products, data sources, promotions, MCQL reports, price competitiveness and product issues for AI agents. OAuth with write support.",
+  "description": "MCP server for Google Merchant Center (Merchant API v1) — products, data sources, promotions, MCQL reports, price competitiveness and product issues for AI agents. OAuth with write support.",
   "mcpName": "io.github.A1-x-Tech/mcp-google-merchants",
   "type": "module",
   "bin": {
@@ -24,7 +24,9 @@
     "test:src": "node --import tsx --test $(find src -name '*.test.ts')",
     "test:dist": "npm run build && node --test test/dist-smoke.test.js",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run typecheck && npm test"
+    "prepublishOnly": "npm run typecheck && npm test",
+    "deploy:cloudflare": "wrangler deploy",
+    "typecheck:worker": "tsc -p tsconfig.worker.json --noEmit"
   },
   "keywords": [
     "mcp",
@@ -51,11 +53,16 @@
   "dependencies": {
     "@a1-x-tech/mcp-google-auth": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.25.0"
+    "zod": "^3.25.0",
+    "@cloudflare/workers-oauth-provider": "^0.0.5",
+    "agents": "^0.0.95",
+    "hono": "^4.8.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
     "tsx": "^4.22.4",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "wrangler": "^4.20.1",
+    "@cloudflare/workers-types": "^4.20250618.0"
   }
 }
