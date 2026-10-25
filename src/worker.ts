@@ -6,6 +6,7 @@
 import OAuthProvider from "@cloudflare/workers-oauth-provider";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
+import { z } from "zod";
 import type { HttpMethod, Query, AccessTokenProvider } from "./client.js";
 import { MerchantsClient } from "./client.js";
 import { DEFAULT_BASE, DEFAULT_TOKEN_URL } from "./config.js";
@@ -104,6 +105,61 @@ export class MerchantMCP extends McpAgent<Env, Record<string, never>, MerchantOA
     registerReportTools(this.server, client);
     registerIssueTools(this.server, client);
     registerQuotaTools(this.server, client);
+
+    // One-time Merchant API developer registration, deliberately scoped to Paintarthub.
+    // This operation adds API_DEVELOPER to the signed-in Merchant Center administrator.
+    // Google links the project identified by this OAuth access token automatically.
+    this.server.registerTool("gmc_register_developer", {
+      title: "Register Paintarthub's Google Cloud project for Merchant API",
+      description:
+        "One-time explicit ADMIN-only registration for Paintarthub Merchant Center account 5348631431. " +
+        "Links the OAuth client Google Cloud project and adds API_DEVELOPER to the signed-in email. " +
+        "Only invoke when the owner expressly requests developer registration. " +
+        "Never edits or deletes GMC products.",
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      inputSchema: {
+        confirmation: z.literal("REGISTER_PAINTARTHUB_GMC").describe(
+          "Explicit registration approval phrase; mandatory for this account-level change.",
+        ),
+      },
+    }, async ({ confirmation }) => {
+      if (confirmation !== "REGISTER_PAINTARTHUB_GMC") {
+        return { isError: true, content: [{ type: "text", text: "Explicit confirmation is required." }] };
+      }
+      const signedInEmail = (this.props.email || "").trim().toLowerCase();
+      const allowed = (this.env.ALLOWED_EMAILS || "").split(",").map(x => x.trim().toLowerCase());
+      if (!signedInEmail || !allowed.includes(signedInEmail)) {
+        return { isError: true, content: [{ type: "text", text: "OAuth email is not in the authorized allowlist." }] };
+      }
+      const token = await this.tokenProvider().getAccessToken();
+      const endpoint =
+        "https://merchantapi.googleapis.com/accounts/v1/accounts/5348631431/developerRegistration:registerGcp";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ developerEmail: signedInEmail }),
+      });
+      const payload = await response.text();
+      if (!response.ok) {
+        return { isError: true, content: [{ type: "text", text: "Registration failed, HTTP " + response.status + ": " + payload }] };
+      }
+      return { content: [{ type: "text", text: "Developer registration succeeded for Merchant Center 5348631431; Google response: " + payload }] };
+    });
+
+    this.server.registerTool("gmc_get_developer_registration", {
+      title: "Check Paintarthub Merchant API developer registration",
+      description: "Read-only check of the Google Cloud project registration with Merchant Center 5348631431.",
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      inputSchema: {},
+    }, async () => {
+      const token = await this.tokenProvider().getAccessToken();
+      const response = await fetch(
+        "https://merchantapi.googleapis.com/accounts/v1/accounts/5348631431/developerRegistration",
+        { headers: { Authorization: "Bearer " + token } },
+      );
+      const payload = await response.text();
+      return { isError: !response.ok, content: [{ type: "text", text: "HTTP " + response.status + ": " + payload }] };
+    });
 
     this.server.registerTool("gmc_connection_status", {
       title: "Check GMC MCP write safety",
