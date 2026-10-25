@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "outDir": "dist",
     "rootDir": "src",
     "strict": true,
@@ -12,11 +14,17 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",
     "src/**/*.test.ts",
-    "src/smoke.ts"
+    "src/smoke.ts",
+    "src/worker.ts",
+    "src/worker-auth.ts",
+    "src/worker-oauth-utils.ts",
+    "src/worker-env.d.ts"
   ]
 }
