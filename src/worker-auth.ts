@@ -55,6 +55,42 @@ app.post("/authorize", async c => {
   return googleRedirect(c, state.oauthReqInfo as AuthRequest, headers);
 });
 
+/**
+ * One-time developer-registration page. Requires an explicit browser POST and
+ * Google authorization by an allowlisted GMC administrator. No access tokens
+ * are passed to the user or stored by this flow.
+ */
+app.get("/setup/developer-registration", c => c.html(
+  \`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Paintarthub Merchant API registration</title>
+  <main style="font:16px system-ui,sans-serif;max-width:630px;margin:12vh auto;padding:22px;line-height:1.6">
+  <h1>Register Paintarthub Merchant API</h1>
+  <p>Merchant Center: <strong>5348631431</strong></p>
+  <p>Google Cloud project: <strong>paintarthub-analytics-mcp</strong></p>
+  <p>This one-time operation links the Google Cloud project to this Merchant Center account,
+  and grants the signed-in administrator the <strong>API_DEVELOPER</strong> role for API notices.
+  It does not update or delete any products.</p>
+  <form method="POST" action="/setup/developer-registration"><button type="submit"
+  style="padding:12px 18px;cursor:pointer">Authorize with Google and register</button></form>
+  </main></html>\`,
+));
+
+app.post("/setup/developer-registration", async c => {
+  const state = crypto.randomUUID();
+  await c.env.OAUTH_KV.put("gmc-oauth-state:" + state, JSON.stringify({
+    kind: "paintarthub-developer-registration",
+    accountId: "5348631431",
+  }), { expirationTtl: 600 });
+  const url = new URL(GOOGLE_AUTHORIZE);
+  url.searchParams.set("client_id", c.env.GOOGLE_CLIENT_ID);
+  url.searchParams.set("redirect_uri", new URL("/callback", c.req.url).href);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", "openid email profile https://www.googleapis.com/auth/content");
+  url.searchParams.set("prompt", "select_account consent");
+  url.searchParams.set("state", state);
+  return c.redirect(url.toString());
+});
+
 app.get("/callback", async c => {
   const state = c.req.query("state");
   const code = c.req.query("code");
@@ -63,8 +99,12 @@ app.get("/callback", async c => {
   const saved = await c.env.OAUTH_KV.get(key);
   if (!saved) return c.text("Expired or invalid OAuth state. Restart connection.", 400);
   await c.env.OAUTH_KV.delete(key);
-  const auth = JSON.parse(saved) as AuthRequest;
-  if (!auth.clientId) return c.text("Invalid MCP client request", 400);
+  const stored = JSON.parse(saved) as AuthRequest | { kind: string; accountId: string };
+  const developerRegistration = "kind" in stored &&
+    stored.kind === "paintarthub-developer-registration" &&
+    stored.accountId === "5348631431";
+  const auth = stored as AuthRequest;
+  if (!developerRegistration && !auth.clientId) return c.text("Invalid MCP client request", 400);
   const response = await fetch(GOOGLE_TOKEN, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -86,6 +126,29 @@ app.get("/callback", async c => {
   const user = await userResponse.json() as { id?: string; name?: string; email?: string; verified_email?: boolean };
   if (!user.id || !user.email || !user.verified_email || !emailAllowed(user.email, c.env)) {
     return c.text("This Google account is not authorized for Paintarthub GMC.", 403);
+  }
+  if (developerRegistration) {
+    const response = await fetch(
+      "https://merchantapi.googleapis.com/accounts/v1/accounts/5348631431/developerRegistration:registerGcp",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + token.access_token,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ developerEmail: user.email }),
+      },
+    );
+    const responseBody = await response.text();
+    if (!response.ok) {
+      return c.text("Merchant API developer registration failed (HTTP " +
+        response.status + "): " + responseBody, response.status === 403 ? 403 : 400);
+    }
+    return c.text(
+      "SUCCESS: Registered Google Cloud project paintarthub-analytics-mcp for Merchant Center " +
+      "5348631431 with technical contact " + user.email +
+      ". Google response: " + responseBody,
+    );
   }
   const { redirectTo } = await c.env.OAUTH_PROVIDER.completeAuthorization({
     metadata: { label: user.name || user.email },
