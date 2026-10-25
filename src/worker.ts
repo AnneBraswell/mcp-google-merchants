@@ -80,8 +80,12 @@ export class MerchantMCP extends McpAgent<Env, Record<string, never>, MerchantOA
       const isReportRead = method === "POST" &&
         /^reports\/v1\/accounts\/[^/]+\/reports:search$/.test(cleanPath);
       if (method !== "GET" && !isReportRead) {
-        const isProductWrite = /^(products\/v1\/accounts\/[^/]+\/productInputs)(\/|$)/.test(cleanPath) &&
-          ["POST", "PATCH", "DELETE"].includes(method);
+        const isProductWrite = (
+          method === "POST" && /^products\/v1\/accounts\/[^/]+\/productInputs:insert$/.test(cleanPath)
+        ) || (
+          (method === "PATCH" || method === "DELETE") &&
+          /^products\/v1\/accounts\/[^/]+\/productInputs\/[^/]+$/.test(cleanPath)
+        );
         if (!isProductWrite || this.env.GMC_WRITES_ENABLED !== "true") {
           throw new Error(
             "GMC write blocked by server policy. Only product-input writes are permitted " +
